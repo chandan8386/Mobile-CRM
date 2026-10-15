@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Outer Shield / Badge Outline -->
+    <path
+        android:fillColor="#1E293B"
+        android:pathData="M54,22 C68,22 78,26 78,26 C78,54 68,76 54,84 C40,76 30,54 30,26 C30,26 40,22 54,22 Z" />
+    <!-- Gradient / Bright Ring -->
+    <path
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="2.5"
+        android:fillColor="#00000000"
+        android:pathData="M54,24 C67,24 76,27.5 76,27.5 C76,53 66.5,74 54,81.5 C41.5,74 32,53 32,27.5 C32,27.5 41,24 54,24 Z" />
+    <!-- Bar 1 -->
+    <path
+        android:fillColor="#60A5FA"
+        android:pathData="M39,64 L45,64 L45,54 L39,54 Z" />
+    <!-- Bar 2 -->
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M48,64 L54,64 L54,46 L48,46 Z" />
+    <!-- Bar 3 -->
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M57,64 L63,64 L63,38 L57,38 Z" />
+    <!-- Trending Up Arrow -->
+    <path
+        android:strokeColor="#34D399"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M40,50 L50,42 L56,46 L68,34" />
+    <!-- Arrow Head -->
+    <path
+        android:fillColor="#34D399"
+        android:pathData="M64,33 L70,33 L70,39 Z" />
+</vector>

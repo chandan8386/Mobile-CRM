@@ -1,0 +1,6 @@
+{
+  "name": "NexusCRM",
+  "description": "Sales CRM with lead tracking, follow-ups, performance dashboard, offline sync, biometric security, RBAC, and multilingual support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
