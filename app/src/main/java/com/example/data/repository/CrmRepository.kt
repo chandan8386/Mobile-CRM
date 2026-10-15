@@ -4,6 +4,7 @@ import com.example.data.local.ActivityLogEntity
 import com.example.data.local.AppNotificationEntity
 import com.example.data.local.CrmDao
 import com.example.data.local.FollowUpEntity
+import com.example.data.local.LeadDocumentEntity
 import com.example.data.local.LeadEntity
 import com.example.data.local.ProjectEntity
 import com.example.data.local.TaskEntity
@@ -33,6 +34,16 @@ class CrmRepository(private val dao: CrmDao) {
 
     // Leads
     val allLeads: Flow<List<LeadEntity>> = dao.getAllLeads()
+
+    fun searchLeadsFts(query: String): Flow<List<LeadEntity>> {
+        val clean = query.trim().replace("\"", "").replace("'", "")
+        val words = clean.split("\\s+".toRegex()).filter { it.isNotBlank() }
+        if (words.isEmpty()) {
+            return dao.getAllLeads()
+        }
+        val ftsQuery = words.joinToString(" ") { "$it*" }
+        return dao.searchLeadsFts(ftsQuery)
+    }
 
     fun getLeadsForRep(repName: String): Flow<List<LeadEntity>> = dao.getLeadsForRep(repName)
 
@@ -117,6 +128,16 @@ class CrmRepository(private val dao: CrmDao) {
 
     // Tasks
     val allTasks: Flow<List<TaskEntity>> = dao.getAllTasks()
+
+    fun searchTasksFts(query: String): Flow<List<TaskEntity>> {
+        val clean = query.trim().replace("\"", "").replace("'", "")
+        val words = clean.split("\\s+".toRegex()).filter { it.isNotBlank() }
+        if (words.isEmpty()) {
+            return dao.getAllTasks()
+        }
+        val ftsQuery = words.joinToString(" ") { "$it*" }
+        return dao.searchTasksFts(ftsQuery)
+    }
 
     suspend fun saveTask(task: TaskEntity): Long {
         val syncState = if (_isOfflineMode.value) SyncStatus.PENDING_SYNC else SyncStatus.SYNCED
@@ -229,5 +250,56 @@ class CrmRepository(private val dao: CrmDao) {
             )
         )
         return pendingLeads.size + pendingTasks.size
+    }
+
+    // Lead Documents & Photos
+    fun getDocumentsForLead(leadId: Long): Flow<List<LeadDocumentEntity>> = dao.getDocumentsForLead(leadId)
+
+    fun getDocumentCountForLead(leadId: Long): Flow<Int> = dao.getDocumentCountForLead(leadId)
+
+    suspend fun saveLeadDocument(document: LeadDocumentEntity, authorName: String, authorRole: String): Long {
+        val syncState = if (_isOfflineMode.value) SyncStatus.PENDING_SYNC else SyncStatus.SYNCED
+        val id = dao.insertLeadDocument(document.copy(syncStatus = syncState))
+        val typeLabel = when (document.docType) {
+            "BUSINESS_CARD" -> "Business Card"
+            "CONTRACT" -> "Contract Document"
+            "INVOICE" -> "Invoice / Receipt"
+            else -> "Document"
+        }
+        dao.insertActivityLog(
+            ActivityLogEntity(
+                entityType = "LEAD",
+                entityId = document.leadId,
+                authorName = authorName,
+                authorRole = authorRole,
+                actionText = "Attached $typeLabel photo",
+                commentNote = "${document.title}${if (document.notes.isNotBlank()) " - ${document.notes}" else ""}",
+                syncStatus = syncState
+            )
+        )
+        return id
+    }
+
+    suspend fun deleteLeadDocument(document: LeadDocumentEntity, authorName: String, authorRole: String) {
+        dao.deleteLeadDocumentById(document.id)
+        if (document.filePath.isNotBlank()) {
+            try {
+                val file = java.io.File(document.filePath)
+                if (file.exists()) {
+                    file.delete()
+                }
+            } catch (_: Exception) {}
+        }
+        dao.insertActivityLog(
+            ActivityLogEntity(
+                entityType = "LEAD",
+                entityId = document.leadId,
+                authorName = authorName,
+                authorRole = authorRole,
+                actionText = "Removed document attachment",
+                commentNote = "Deleted: ${document.title}",
+                syncStatus = if (_isOfflineMode.value) SyncStatus.PENDING_SYNC else SyncStatus.SYNCED
+            )
+        )
     }
 }

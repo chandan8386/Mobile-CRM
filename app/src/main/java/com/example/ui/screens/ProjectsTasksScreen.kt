@@ -23,9 +23,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.CalendarToday
+import com.example.ui.components.TeamCalendarView
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -76,9 +79,10 @@ fun ProjectsTasksScreen(
     modifier: Modifier = Modifier
 ) {
     val projects by viewModel.allProjects.collectAsState()
-    val tasks by viewModel.allTasks.collectAsState()
+    val tasks by viewModel.visibleTasks.collectAsState()
+    val taskSearchQuery by viewModel.taskSearchQuery.collectAsState()
 
-    var activeTab by remember { mutableIntStateOf(0) } // 0 = Projects, 1 = Tasks
+    var activeTab by remember { mutableIntStateOf(0) } // 0 = Projects, 1 = Tasks, 2 = Team Calendar
     var showAddProjectDialog by remember { mutableStateOf(false) }
     var showAddTaskDialog by remember { mutableStateOf(false) }
 
@@ -102,7 +106,7 @@ fun ProjectsTasksScreen(
                     text = {
                         Text(
                             text = "${strings.projects} (${projects.size})",
-                            fontSize = 13.sp,
+                            fontSize = 12.sp,
                             fontWeight = if (activeTab == 0) FontWeight.Bold else FontWeight.Normal
                         )
                     }
@@ -113,86 +117,153 @@ fun ProjectsTasksScreen(
                     text = {
                         Text(
                             text = "${strings.tasks} (${tasks.size})",
-                            fontSize = 13.sp,
+                            fontSize = 12.sp,
                             fontWeight = if (activeTab == 1) FontWeight.Bold else FontWeight.Normal
                         )
+                    }
+                )
+                Tab(
+                    selected = activeTab == 2,
+                    onClick = { activeTab = 2 },
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.CalendarToday,
+                                contentDescription = null,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = strings.teamCalendar,
+                                fontSize = 12.sp,
+                                fontWeight = if (activeTab == 2) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
                     }
                 )
             }
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            if (activeTab == 0) {
-                // Projects List
-                if (projects.isEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("No projects yet. Tap + to create one.")
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        items(projects, key = { it.id }) { project ->
-                            ProjectCard(
-                                project = project,
-                                onDelete = { viewModel.deleteProject(project.id) }
-                            )
+            when (activeTab) {
+                0 -> {
+                    // Projects List
+                    if (projects.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("No projects yet. Tap + to create one.")
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(projects, key = { it.id }) { project ->
+                                ProjectCard(
+                                    project = project,
+                                    onDelete = { viewModel.deleteProject(project.id) }
+                                )
+                            }
                         }
                     }
                 }
-            } else {
-                // Tasks List
-                if (tasks.isEmpty()) {
-                    Box(
+                1 -> {
+                    // FTS4 Offline Task Search Bar
+                    OutlinedTextField(
+                        value = taskSearchQuery,
+                        onValueChange = { viewModel.setTaskSearchQuery(it) },
+                        placeholder = { Text("Search tasks offline (FTS4)...", fontSize = 13.sp) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Search Tasks",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
+                        trailingIcon = {
+                            if (taskSearchQuery.isNotEmpty()) {
+                                IconButton(onClick = { viewModel.setTaskSearchQuery("") }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Clear,
+                                        contentDescription = "Clear",
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("No tasks yet. Tap + to add task.")
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        items(tasks, key = { it.id }) { task ->
-                            TaskCard(
-                                task = task,
-                                onToggleStatus = { viewModel.toggleTaskStatus(task) },
-                                onDelete = { viewModel.deleteTask(task.id) }
+                            .padding(bottom = 10.dp)
+                            .testTag("tasks_fts_search_field")
+                    )
+
+                    // Tasks List
+                    if (tasks.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (taskSearchQuery.isBlank()) "No tasks yet. Tap + to add task."
+                                else "No matching tasks found offline."
                             )
                         }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(tasks, key = { it.id }) { task ->
+                                TaskCard(
+                                    task = task,
+                                    onToggleStatus = { viewModel.toggleTaskStatus(task) },
+                                    onDelete = { viewModel.deleteTask(task.id) }
+                                )
+                            }
+                        }
                     }
+                }
+                2 -> {
+                    // Shared Team Calendar View (Tasks & Follow-up deadlines synced)
+                    TeamCalendarView(
+                        viewModel = viewModel,
+                        strings = strings,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
         }
 
-        FloatingActionButton(
-            onClick = {
-                if (activeTab == 0) showAddProjectDialog = true else showAddTaskDialog = true
-            },
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = Color.White,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(20.dp)
-                .testTag("fab_add_project_task")
-        ) {
-            Icon(
-                imageVector = Icons.Default.Add,
-                contentDescription = if (activeTab == 0) strings.newProject else strings.newTask
-            )
+        if (activeTab != 2) {
+            FloatingActionButton(
+                onClick = {
+                    if (activeTab == 0) showAddProjectDialog = true else showAddTaskDialog = true
+                },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = Color.White,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(20.dp)
+                    .testTag("fab_add_project_task")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = if (activeTab == 0) strings.newProject else strings.newTask
+                )
+            }
         }
     }
 

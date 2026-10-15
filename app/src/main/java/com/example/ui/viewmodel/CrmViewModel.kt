@@ -2,9 +2,13 @@ package com.example.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.ai.AiActionItem
+import com.example.ai.GeminiAnalysisResult
+import com.example.ai.RecommendedFollowUp
 import com.example.data.local.ActivityLogEntity
 import com.example.data.local.AppNotificationEntity
 import com.example.data.local.FollowUpEntity
+import com.example.data.local.LeadDocumentEntity
 import com.example.data.local.LeadEntity
 import com.example.data.local.ProjectEntity
 import com.example.data.local.TaskEntity
@@ -27,13 +31,19 @@ import com.example.localization.LocalizedStrings
 import com.example.notification.FcmNotificationManager
 import com.example.security.BiometricSecurityManager
 import com.example.security.PermissionManager
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class CrmViewModel(
     private val repository: CrmRepository,
@@ -149,7 +159,7 @@ class CrmViewModel(
         initialValue = emptyList()
     )
 
-    // Search & Filter
+    // Lead Search & Filter via Room FTS4 Full-Text Search
     private val _leadSearchQuery = MutableStateFlow("")
     val leadSearchQuery: StateFlow<String> = _leadSearchQuery.asStateFlow()
 
@@ -164,30 +174,37 @@ class CrmViewModel(
         _selectedStageFilter.value = stage
     }
 
-    // Visible Leads (filtered by search, stage, and role access)
+    // FTS4 Virtual Table reactive stream: executes SQLite MATCH against leads_fts
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val ftsSearchedLeads: StateFlow<List<LeadEntity>> = _leadSearchQuery
+        .flatMapLatest { query ->
+            repository.searchLeadsFts(query)
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    // Visible Leads (filtered by FTS4 search, pipeline stage, and role access)
     val visibleLeads: StateFlow<List<LeadEntity>> = combine(
-        allLeads,
-        _leadSearchQuery,
+        ftsSearchedLeads,
         _selectedStageFilter,
         currentMember,
         permissions
-    ) { leads, query, stage, member, perms ->
+    ) { leads, stage, member, perms ->
         leads.filter { lead ->
-            val matchesRole = perms.canViewAllLeads || lead.assignedTo == member.name
+            val matchesRole = perms.canViewAllLeads || lead.assignedTo.equals(member.name, ignoreCase = true)
             val matchesStage = stage == null || lead.stage == stage
-            val matchesSearch = query.isBlank() ||
-                lead.clientName.contains(query, ignoreCase = true) ||
-                lead.companyName.contains(query, ignoreCase = true) ||
-                lead.phone.contains(query, ignoreCase = true) ||
-                lead.email.contains(query, ignoreCase = true)
-
-            matchesRole && matchesStage && matchesSearch
+            matchesRole && matchesStage
         }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
     )
+
+    fun searchLeadsOfflineFts(query: String): Flow<List<LeadEntity>> = repository.searchLeadsFts(query)
 
     // Pending Sync Count
     val pendingSyncCount: StateFlow<Int> = allLeads.combine(repository.allFollowUps) { leads, followUps ->
@@ -283,6 +300,28 @@ class CrmViewModel(
         initialValue = emptyList()
     )
 
+    // Task Search with Room FTS4 Virtual Table
+    private val _taskSearchQuery = MutableStateFlow("")
+    val taskSearchQuery: StateFlow<String> = _taskSearchQuery.asStateFlow()
+
+    fun setTaskSearchQuery(query: String) {
+        _taskSearchQuery.value = query
+    }
+
+    // Reactive task stream using Room FTS4 MATCH query
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val visibleTasks: StateFlow<List<TaskEntity>> = _taskSearchQuery
+        .flatMapLatest { query ->
+            repository.searchTasksFts(query)
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    fun searchTasksOfflineFts(query: String): Flow<List<TaskEntity>> = repository.searchTasksFts(query)
+
     fun saveTask(task: TaskEntity) {
         viewModelScope.launch {
             repository.saveTask(task)
@@ -346,5 +385,119 @@ class CrmViewModel(
 
     fun clearNotifications() {
         viewModelScope.launch { repository.clearNotifications() }
+    }
+
+    // Lead Documents & Business Cards
+    fun getDocumentsForLead(leadId: Long): Flow<List<LeadDocumentEntity>> {
+        return repository.getDocumentsForLead(leadId)
+    }
+
+    fun getDocumentCountForLead(leadId: Long): Flow<Int> {
+        return repository.getDocumentCountForLead(leadId)
+    }
+
+    fun saveLeadDocument(
+        leadId: Long,
+        title: String,
+        docType: String,
+        filePath: String,
+        fileUri: String = "",
+        notes: String = ""
+    ) {
+        viewModelScope.launch {
+            val doc = LeadDocumentEntity(
+                leadId = leadId,
+                title = title.ifBlank { "Document #${System.currentTimeMillis() % 1000}" },
+                docType = docType,
+                filePath = filePath,
+                fileUri = fileUri,
+                notes = notes,
+                capturedAt = System.currentTimeMillis()
+            )
+            repository.saveLeadDocument(
+                document = doc,
+                authorName = _currentMember.value.name,
+                authorRole = _currentMember.value.role.displayName
+            )
+        }
+    }
+
+    fun deleteLeadDocument(document: LeadDocumentEntity) {
+        viewModelScope.launch {
+            repository.deleteLeadDocument(
+                document = document,
+                authorName = _currentMember.value.name,
+                authorRole = _currentMember.value.role.displayName
+            )
+        }
+    }
+
+    // Gemini AI Meeting & Card Summarizer integration
+    fun appendAiSummaryToLead(lead: LeadEntity, summaryResult: GeminiAnalysisResult) {
+        viewModelScope.launch {
+            val dateStr = SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault()).format(Date())
+            val actionItemsText = summaryResult.actionItems.joinToString("\n") { "• [${it.priority.label}] ${it.title}" }
+            val newNotesSection = buildString {
+                if (lead.notes.isNotBlank()) {
+                    append(lead.notes)
+                    append("\n\n")
+                }
+                append("=== [Gemini AI Meeting Summary • $dateStr] ===\n")
+                append("Sentiment: ${summaryResult.clientSentiment}\n")
+                append("Summary: ${summaryResult.summary}\n")
+                if (summaryResult.keyDiscussionPoints.isNotEmpty()) {
+                    append("Key Points:\n")
+                    summaryResult.keyDiscussionPoints.forEach { append("- $it\n") }
+                }
+                if (actionItemsText.isNotBlank()) {
+                    append("Action Items:\n$actionItemsText\n")
+                }
+            }
+
+            repository.updateLead(
+                lead = lead.copy(notes = newNotesSection.trim()),
+                authorName = _currentMember.value.name,
+                authorRole = _currentMember.value.role.displayName,
+                changeNote = "Appended Gemini AI meeting summary to notes"
+            )
+        }
+    }
+
+    fun createCrmTaskFromAi(
+        actionItem: AiActionItem,
+        lead: LeadEntity?
+    ) {
+        viewModelScope.launch {
+            val dueMillis = System.currentTimeMillis() + (actionItem.suggestedDueDateDays.toLong() * 24 * 3600 * 1000L)
+            val newTask = TaskEntity(
+                title = actionItem.title,
+                description = actionItem.description,
+                priority = actionItem.priority,
+                status = TaskStatus.TODO,
+                dueDate = dueMillis,
+                assignedTo = lead?.assignedTo ?: _currentMember.value.name,
+                relatedLeadId = lead?.id,
+                relatedProjectName = lead?.companyName
+            )
+            repository.saveTask(newTask)
+        }
+    }
+
+    fun scheduleFollowUpFromAi(
+        lead: LeadEntity,
+        recommendedFollowUp: RecommendedFollowUp
+    ) {
+        viewModelScope.launch {
+            val dueMillis = System.currentTimeMillis() + (recommendedFollowUp.suggestedDays.toLong() * 24 * 3600 * 1000L)
+            val newFollowUp = FollowUpEntity(
+                leadId = lead.id,
+                leadName = "${lead.clientName} (${lead.companyName})",
+                clientPhone = lead.phone,
+                scheduledDateTime = dueMillis,
+                type = recommendedFollowUp.type,
+                notes = recommendedFollowUp.purpose
+            )
+            repository.saveFollowUp(newFollowUp)
+        }
     }
 }

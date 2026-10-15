@@ -2,4 +2,6 @@
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
     <cache-path name="crm_reports" path="reports/"/>
     <files-path name="crm_docs" path="reports/"/>
+    <cache-path name="crm_photos_cache" path="lead_photos/"/>
+    <files-path name="crm_photos_files" path="lead_photos/"/>
 </paths>

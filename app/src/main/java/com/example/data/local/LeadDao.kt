@@ -24,6 +24,15 @@ interface LeadDao {
     @Query("SELECT * FROM leads WHERE assignedTo = :repName ORDER BY updatedAt DESC")
     fun getLeadsForRep(repName: String): Flow<List<LeadEntity>>
 
+    // FTS4 Full-Text Search
+    @Query("""
+        SELECT leads.* FROM leads
+        JOIN leads_fts ON leads.id = leads_fts.rowid
+        WHERE leads_fts MATCH :ftsQuery
+        ORDER BY leads.updatedAt DESC
+    """)
+    fun searchLeadsFts(ftsQuery: String): Flow<List<LeadEntity>>
+
     // Offline data syncing queries
     @Query("SELECT * FROM leads WHERE syncStatus = :status")
     suspend fun getPendingSyncLeads(status: SyncStatus = SyncStatus.PENDING_SYNC): List<LeadEntity>

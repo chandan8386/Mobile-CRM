@@ -35,9 +35,15 @@ import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.ui.graphics.Brush
+import com.example.ui.components.GeminiSummaryDialog
+import com.example.ui.components.LeadDocumentsSection
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -95,6 +101,7 @@ fun LeadsScreen(
 
     var showAddDialog by remember { mutableStateOf(showAddDialogInitially) }
     var selectedLeadForDetails by remember { mutableStateOf<LeadEntity?>(null) }
+    var selectedLeadForGemini by remember { mutableStateOf<LeadEntity?>(null) }
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(
@@ -190,9 +197,12 @@ fun LeadsScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     items(leads, key = { it.id }) { lead ->
+                        val docCount by viewModel.getDocumentCountForLead(lead.id).collectAsState(initial = 0)
                         LeadCard(
                             lead = lead,
-                            onClick = { selectedLeadForDetails = lead }
+                            documentCount = docCount,
+                            onClick = { selectedLeadForDetails = lead },
+                            onOpenGemini = { selectedLeadForGemini = lead }
                         )
                     }
                 }
@@ -217,6 +227,7 @@ fun LeadsScreen(
     selectedLeadForDetails?.let { currentLead ->
         LeadDetailsDialog(
             lead = currentLead,
+            viewModel = viewModel,
             strings = strings,
             canDelete = permissions.canDeleteLeads,
             activityLogs = recentLogs.filter { it.entityType == "LEAD" && it.entityId == currentLead.id },
@@ -232,6 +243,19 @@ fun LeadsScreen(
                 viewModel.deleteLead(currentLead.id)
                 selectedLeadForDetails = null
             }
+        )
+    }
+
+    // Gemini AI Summary Dialog
+    selectedLeadForGemini?.let { geminiLead ->
+        val docs by viewModel.getDocumentsForLead(geminiLead.id).collectAsState(initial = emptyList())
+        GeminiSummaryDialog(
+            lead = geminiLead,
+            initialNotes = geminiLead.notes,
+            availableDocuments = docs,
+            strings = strings,
+            viewModel = viewModel,
+            onDismiss = { selectedLeadForGemini = null }
         )
     }
 
@@ -277,7 +301,9 @@ private fun StageFilterChip(
 @Composable
 private fun LeadCard(
     lead: LeadEntity,
-    onClick: () -> Unit
+    documentCount: Int = 0,
+    onClick: () -> Unit,
+    onOpenGemini: () -> Unit = {}
 ) {
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -366,6 +392,33 @@ private fun LeadCard(
                         )
                     }
 
+                    // Attached Documents / Business Cards Count Badge
+                    if (documentCount > 0) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFFF59E0B).copy(alpha = 0.15f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PhotoCamera,
+                                    contentDescription = "Documents",
+                                    tint = Color(0xFFD97706),
+                                    modifier = Modifier.size(11.dp)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = "$documentCount",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFD97706)
+                                )
+                            }
+                        }
+                    }
+
                     // Priority Chip
                     Surface(
                         shape = RoundedCornerShape(8.dp),
@@ -392,6 +445,34 @@ private fun LeadCard(
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
+
+                    // Gemini AI Sparkle chip
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFF7C3AED).copy(alpha = 0.12f),
+                        modifier = Modifier
+                            .clickable { onOpenGemini() }
+                            .testTag("lead_ai_chip_${lead.id}")
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AutoAwesome,
+                                contentDescription = "Gemini AI",
+                                tint = Color(0xFF7C3AED),
+                                modifier = Modifier.size(11.dp)
+                            )
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text(
+                                text = "AI",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF7C3AED)
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -401,6 +482,7 @@ private fun LeadCard(
 @Composable
 private fun LeadDetailsDialog(
     lead: LeadEntity,
+    viewModel: CrmViewModel,
     strings: LocalizedStrings,
     canDelete: Boolean,
     activityLogs: List<ActivityLogEntity>,
@@ -411,6 +493,7 @@ private fun LeadDetailsDialog(
 ) {
     val context = LocalContext.current
     var newCommentText by remember { mutableStateOf("") }
+    var showGeminiDialog by remember { mutableStateOf(false) }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -426,6 +509,7 @@ private fun LeadDetailsDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(20.dp)
+                    .verticalScroll(rememberScrollState())
             ) {
                 // Header
                 Row(
@@ -566,6 +650,77 @@ private fun LeadDetailsDialog(
                     }
                 }
 
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Gemini AI Meeting Summary & Actions Banner
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showGeminiDialog = true }
+                        .testTag("open_gemini_lead_dialog")
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        Brush.linearGradient(
+                                            listOf(Color(0xFF2563EB), Color(0xFF7C3AED), Color(0xFFDB2777))
+                                        )
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AutoAwesome,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = strings.geminiAiSummary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Auto-generate summary & CRM actions (Gemini 3.5)",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Documents & Physical Business Cards
+                LeadDocumentsSection(
+                    lead = lead,
+                    viewModel = viewModel,
+                    strings = strings
+                )
+
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Collaboration / Team Notes input
@@ -666,6 +821,18 @@ private fun LeadDetailsDialog(
                 }
             }
         }
+    }
+
+    if (showGeminiDialog) {
+        val leadDocuments by viewModel.getDocumentsForLead(lead.id).collectAsState(initial = emptyList())
+        GeminiSummaryDialog(
+            lead = lead,
+            initialNotes = lead.notes,
+            availableDocuments = leadDocuments,
+            strings = strings,
+            viewModel = viewModel,
+            onDismiss = { showGeminiDialog = false }
+        )
     }
 }
 

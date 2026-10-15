@@ -27,6 +27,15 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE assignedTo = :repName ORDER BY dueDate ASC")
     fun getTasksForRep(repName: String): Flow<List<TaskEntity>>
 
+    // FTS4 Full-Text Search
+    @Query("""
+        SELECT tasks.* FROM tasks
+        JOIN tasks_fts ON tasks.id = tasks_fts.rowid
+        WHERE tasks_fts MATCH :ftsQuery
+        ORDER BY tasks.dueDate ASC
+    """)
+    fun searchTasksFts(ftsQuery: String): Flow<List<TaskEntity>>
+
     // Offline data syncing queries
     @Query("SELECT * FROM tasks WHERE syncStatus = :status")
     suspend fun getPendingSyncTasks(status: SyncStatus = SyncStatus.PENDING_SYNC): List<TaskEntity>

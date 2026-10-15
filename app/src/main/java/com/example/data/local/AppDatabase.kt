@@ -21,13 +21,16 @@ import kotlinx.coroutines.launch
 @Database(
     entities = [
         LeadEntity::class,
+        LeadFtsEntity::class,
         FollowUpEntity::class,
         ProjectEntity::class,
         TaskEntity::class,
+        TaskFtsEntity::class,
         ActivityLogEntity::class,
-        AppNotificationEntity::class
+        AppNotificationEntity::class,
+        LeadDocumentEntity::class
     ],
-    version = 1,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -304,6 +307,30 @@ suspend fun populateInitialData(dao: CrmDao) {
             timestamp = now - (12 * hour),
             isRead = true,
             targetTab = "leads"
+        )
+    )
+
+    // Seed Initial Business Cards / Physical Documents
+    dao.insertLeadDocument(
+        LeadDocumentEntity(
+            leadId = id1,
+            title = "Business Card - Ananya Roy",
+            docType = "BUSINESS_CARD",
+            filePath = "",
+            fileUri = "",
+            notes = "VP Supply Chain, Apex Logistics. Exchanged card at Bengaluru Tech Summit.",
+            capturedAt = now - (2 * day)
+        )
+    )
+    dao.insertLeadDocument(
+        LeadDocumentEntity(
+            leadId = id2,
+            title = "NDA & Compliance Checklist",
+            docType = "CONTRACT",
+            filePath = "",
+            fileUri = "",
+            notes = "Signed mutual confidentiality document for cloud security module.",
+            capturedAt = now - (1 * day)
         )
     )
 }

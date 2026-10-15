@@ -104,7 +104,44 @@ data class LocalizedStrings(
     val phone: String,
     val email: String,
     val amount: String,
-    val assignedTo: String
+    val assignedTo: String,
+
+    // Document & Camera
+    val documentsAndCards: String,
+    val takePhoto: String,
+    val attachDocument: String,
+    val businessCard: String,
+    val physicalDocument: String,
+    val noDocuments: String,
+    val snapDocumentHint: String,
+    val cameraPermissionRequired: String,
+    val saveDocument: String,
+    val documentTitle: String,
+
+    // Gemini AI Meeting & Card Summarizer
+    val geminiAiSummary: String,
+    val generateAiSummary: String,
+    val aiActionItems: String,
+    val analyzeCallNotes: String,
+    val analyzeBusinessCard: String,
+    val generatingSummary: String,
+    val saveToLeadNotes: String,
+    val addAsCrmTask: String,
+    val addAllTasks: String,
+    val scheduleFollowUpAction: String,
+
+    // Calendar & Schedule
+    val calendarView: String,
+    val listView: String,
+    val teamCalendar: String,
+    val weeklySchedule: String,
+    val allTeamMembers: String,
+    val mySchedule: String,
+    val filterTeam: String,
+    val noScheduleItemsDay: String,
+    val jumpToday: String,
+    val taskDeadline: String,
+    val followUpDeadline: String
 )
 
 object LanguageManager {
@@ -205,7 +242,41 @@ object LanguageManager {
         phone = "Phone Number",
         email = "Email Address",
         amount = "Deal Value",
-        assignedTo = "Assigned Rep"
+        assignedTo = "Assigned Rep",
+
+        documentsAndCards = "Documents & Business Cards",
+        takePhoto = "Take Photo",
+        attachDocument = "Attach Document",
+        businessCard = "Business Card",
+        physicalDocument = "Physical Document",
+        noDocuments = "No documents attached yet",
+        snapDocumentHint = "Snap a business card or physical document to store here.",
+        cameraPermissionRequired = "Camera permission is required to capture photos of business cards.",
+        saveDocument = "Save to Lead Profile",
+        documentTitle = "Document Title",
+
+        geminiAiSummary = "Gemini AI Meeting Summary",
+        generateAiSummary = "Generate AI Summary & Actions",
+        aiActionItems = "Action Items & Next Steps",
+        analyzeCallNotes = "Analyze Call Notes",
+        analyzeBusinessCard = "Analyze Business Card",
+        generatingSummary = "Analyzing with Gemini AI...",
+        saveToLeadNotes = "Save Summary to Lead Notes",
+        addAsCrmTask = "Add to CRM Tasks",
+        addAllTasks = "Add All Action Items as Tasks",
+        scheduleFollowUpAction = "Schedule Follow-up",
+
+        calendarView = "Calendar",
+        listView = "List",
+        teamCalendar = "Team Calendar",
+        weeklySchedule = "Weekly Schedule",
+        allTeamMembers = "All Team Members",
+        mySchedule = "My Schedule",
+        filterTeam = "Filter Rep",
+        noScheduleItemsDay = "No tasks or follow-ups scheduled for this day",
+        jumpToday = "Today",
+        taskDeadline = "Task Deadline",
+        followUpDeadline = "Follow-up"
     )
 
     private val hindiStrings = LocalizedStrings(
@@ -296,7 +367,41 @@ object LanguageManager {
         phone = "फ़ोन नंबर",
         email = "ईमेल",
         amount = "डील राशि",
-        assignedTo = "सौंपा गया प्रतिनिधि"
+        assignedTo = "सौंपा गया प्रतिनिधि",
+
+        documentsAndCards = "दस्तावेज व बिजनेस कार्ड",
+        takePhoto = "फोटो खींचें",
+        attachDocument = "दस्तावेज जोड़ें",
+        businessCard = "बिजनेस कार्ड",
+        physicalDocument = "भौतिक दस्तावेज",
+        noDocuments = "अभी तक कोई दस्तावेज संलग्न नहीं है",
+        snapDocumentHint = "बिजनेस कार्ड या दस्तावेज की फोटो खींचकर सुरक्षित करें।",
+        cameraPermissionRequired = "बिजनेस कार्ड की फोटो खींचने के लिए कैमरा अनुमति आवश्यक है।",
+        saveDocument = "लीड प्रोफ़ाइल में सहेजें",
+        documentTitle = "दस्तावेज का शीर्षक",
+
+        geminiAiSummary = "जेमिनी AI मीटिंग सारांश",
+        generateAiSummary = "AI सारांश व कार्य बनाएं",
+        aiActionItems = "कार्य सूची और अगले कदम",
+        analyzeCallNotes = "कॉल नोट्स का विश्लेषण",
+        analyzeBusinessCard = "बिजनेस कार्ड का विश्लेषण",
+        generatingSummary = "जेमिनी AI से विश्लेषण हो रहा है...",
+        saveToLeadNotes = "लीड नोट्स में सहेजें",
+        addAsCrmTask = "CRM कार्य में जोड़ें",
+        addAllTasks = "सभी कार्य CRM में जोड़ें",
+        scheduleFollowUpAction = "फॉलो-अप शेड्यूल करें",
+
+        calendarView = "कैलेंडर",
+        listView = "सूची",
+        teamCalendar = "टीम कैलेंडर",
+        weeklySchedule = "साप्ताहिक समय-सारणी",
+        allTeamMembers = "सभी टीम सदस्य",
+        mySchedule = "मेरा शेड्यूल",
+        filterTeam = "प्रतिनिधि चुनें",
+        noScheduleItemsDay = "इस दिन के लिए कोई कार्य या फॉलो-अप निर्धारित नहीं है",
+        jumpToday = "आज",
+        taskDeadline = "कार्य समय-सीमा",
+        followUpDeadline = "फॉलो-अप"
     )
 
     private val hinglishStrings = LocalizedStrings(
@@ -387,7 +492,41 @@ object LanguageManager {
         phone = "Phone Number",
         email = "Email ID",
         amount = "Deal Value (₹)",
-        assignedTo = "Assigned Sales Rep"
+        assignedTo = "Assigned Sales Rep",
+
+        documentsAndCards = "Documents & Business Cards",
+        takePhoto = "Photo Kheenche",
+        attachDocument = "Document Attach Karein",
+        businessCard = "Business Card",
+        physicalDocument = "Physical Document",
+        noDocuments = "Abhi koi document attach nahi hai",
+        snapDocumentHint = "Business card ya document ki photo kheench kar yahan save karein.",
+        cameraPermissionRequired = "Business card ki photo lene ke liye camera permission zaroori hai.",
+        saveDocument = "Lead Profile Mein Save Karein",
+        documentTitle = "Document Ka Title",
+
+        geminiAiSummary = "Gemini AI Meeting Summary",
+        generateAiSummary = "AI Summary & Actions Banayein",
+        aiActionItems = "Action Items Aur Next Steps",
+        analyzeCallNotes = "Call Notes Analyze Karein",
+        analyzeBusinessCard = "Business Card Analyze Karein",
+        generatingSummary = "Gemini AI se analyze ho raha hai...",
+        saveToLeadNotes = "Lead Notes Mein Save Karein",
+        addAsCrmTask = "CRM Task Mein Dalein",
+        addAllTasks = "Sabhi Tasks CRM Mein Dalein",
+        scheduleFollowUpAction = "Follow-up Schedule Karein",
+
+        calendarView = "Calendar",
+        listView = "List",
+        teamCalendar = "Team Calendar",
+        weeklySchedule = "Weekly Schedule",
+        allTeamMembers = "All Team Members",
+        mySchedule = "Mera Schedule",
+        filterTeam = "Rep Filter",
+        noScheduleItemsDay = "Is din koi task ya follow-up scheduled nahi hai",
+        jumpToday = "Today",
+        taskDeadline = "Task Deadline",
+        followUpDeadline = "Follow-up"
     )
 
     private val marathiStrings = LocalizedStrings(
@@ -478,6 +617,40 @@ object LanguageManager {
         phone = "फोन नंबर",
         email = "ईमेल",
         amount = "सौदा मूल्य",
-        assignedTo = "नेमलेला प्रतिनिधी"
+        assignedTo = "नेमलेला प्रतिनिधी",
+
+        documentsAndCards = "कागदपत्रे व व्हिजिटिंग कार्ड",
+        takePhoto = "फोटो काढा",
+        attachDocument = "कागदपत्र जोडा",
+        businessCard = "व्हिजिटिंग कार्ड",
+        physicalDocument = "कागदपत्र",
+        noDocuments = "अद्याप कोणतीही कागदपत्रे जोडलेली नाहीत",
+        snapDocumentHint = "व्हिजिटिंग कार्ड किंवा कागदपत्राचा फोटो काढून येथे जतन करा.",
+        cameraPermissionRequired = "व्हिजिटिंग कार्डचा फोटो काढण्यासाठी कॅमेऱ्याची परवानगी आवश्यक आहे.",
+        saveDocument = "लीड प्रोफाइलमध्ये जतन करा",
+        documentTitle = "कागदपत्राचे शीर्षक",
+
+        geminiAiSummary = "जेमिनी AI मीटिंग सारांश",
+        generateAiSummary = "AI सारांश आणि कृती तयार करा",
+        aiActionItems = "कृती आयटम आणि पुढील पावले",
+        analyzeCallNotes = "कॉल नोट्सचे विश्लेषण",
+        analyzeBusinessCard = "व्हिजिटिंग कार्डचे विश्लेषण",
+        generatingSummary = "जेमिनी AI द्वारे विश्लेषण सुरू आहे...",
+        saveToLeadNotes = "लीड नोट्समध्ये जतन करा",
+        addAsCrmTask = "CRM कामांमध्ये जोडा",
+        addAllTasks = "सर्व कामे CRM मध्ये जोडा",
+        scheduleFollowUpAction = "फॉलो-अप निश्चित करा",
+
+        calendarView = "कॅलेंडर",
+        listView = "यादी",
+        teamCalendar = "टीम कॅलेंडर",
+        weeklySchedule = "साप्ताहिक वेळापत्रक",
+        allTeamMembers = "सर्व टीम सदस्य",
+        mySchedule = "माझे वेळापत्रक",
+        filterTeam = "प्रतिनिधी निवडा",
+        noScheduleItemsDay = "या दिवशी कोणतीही कामे किंवा फॉलो-अप नियोजित नाहीत",
+        jumpToday = "आज",
+        taskDeadline = "कामाची अंतिम तारीख",
+        followUpDeadline = "फॉलो-अप"
     )
 }

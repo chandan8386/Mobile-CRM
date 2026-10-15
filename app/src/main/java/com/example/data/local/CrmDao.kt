@@ -33,6 +33,15 @@ interface CrmDao {
     @Query("SELECT COUNT(*) FROM leads WHERE syncStatus = :status")
     fun getPendingLeadsSyncCount(status: SyncStatus = SyncStatus.PENDING_SYNC): Flow<Int>
 
+    // FTS4 Full-Text Search for Leads
+    @Query("""
+        SELECT leads.* FROM leads
+        JOIN leads_fts ON leads.id = leads_fts.rowid
+        WHERE leads_fts MATCH :ftsQuery
+        ORDER BY leads.updatedAt DESC
+    """)
+    fun searchLeadsFts(ftsQuery: String): Flow<List<LeadEntity>>
+
     // Follow-ups
     @Query("SELECT * FROM follow_ups ORDER BY scheduledDateTime ASC")
     fun getAllFollowUps(): Flow<List<FollowUpEntity>>
@@ -80,6 +89,15 @@ interface CrmDao {
 
     @Query("DELETE FROM tasks WHERE id = :id")
     suspend fun deleteTaskById(id: Long)
+
+    // FTS4 Full-Text Search for Tasks
+    @Query("""
+        SELECT tasks.* FROM tasks
+        JOIN tasks_fts ON tasks.id = tasks_fts.rowid
+        WHERE tasks_fts MATCH :ftsQuery
+        ORDER BY tasks.dueDate ASC
+    """)
+    fun searchTasksFts(ftsQuery: String): Flow<List<TaskEntity>>
 
     // Activity Logs & Team Collaboration
     @Query("SELECT * FROM activity_logs ORDER BY timestamp DESC LIMIT 50")
@@ -146,4 +164,23 @@ interface CrmDao {
 
     @Query("SELECT * FROM tasks WHERE syncStatus = :status")
     suspend fun getPendingSyncTasks(status: SyncStatus = SyncStatus.PENDING_SYNC): List<TaskEntity>
+
+    // Lead Documents & Business Cards
+    @Query("SELECT * FROM lead_documents WHERE leadId = :leadId ORDER BY capturedAt DESC")
+    fun getDocumentsForLead(leadId: Long): Flow<List<LeadDocumentEntity>>
+
+    @Query("SELECT * FROM lead_documents ORDER BY capturedAt DESC")
+    fun getAllDocuments(): Flow<List<LeadDocumentEntity>>
+
+    @Query("SELECT COUNT(*) FROM lead_documents WHERE leadId = :leadId")
+    fun getDocumentCountForLead(leadId: Long): Flow<Int>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertLeadDocument(document: LeadDocumentEntity): Long
+
+    @Query("DELETE FROM lead_documents WHERE id = :id")
+    suspend fun deleteLeadDocumentById(id: Long)
+
+    @Query("DELETE FROM lead_documents WHERE leadId = :leadId")
+    suspend fun deleteDocumentsForLead(leadId: Long)
 }

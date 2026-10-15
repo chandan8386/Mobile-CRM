@@ -22,14 +22,18 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Videocam
+import com.example.ui.components.TeamCalendarView
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -41,10 +45,13 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
+import com.example.ai.AiSourceType
+import com.example.ui.components.GeminiSummaryDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -84,8 +91,10 @@ fun FollowUpsScreen(
     val followUps by viewModel.allFollowUps.collectAsState()
     val leads by viewModel.allLeads.collectAsState()
 
+    var isCalendarView by remember { mutableStateOf(false) }
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     var showAddDialog by remember { mutableStateOf(false) }
+    var selectedFollowUpForGemini by remember { mutableStateOf<FollowUpEntity?>(null) }
 
     val now = System.currentTimeMillis()
     val dayMillis = 24 * 3600 * 1000L
@@ -105,86 +114,175 @@ fun FollowUpsScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 10.dp)
+                .padding(horizontal = 14.dp, vertical = 8.dp)
         ) {
-            // Tab Header (Today, Upcoming, Overdue, Completed)
-            TabRow(
-                selectedTabIndex = selectedTabIndex,
-                containerColor = MaterialTheme.colorScheme.surface,
+            // View Mode Toggle (List View vs Team Calendar)
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
                 modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .testTag("follow_up_tabs")
+                    .fillMaxWidth()
+                    .testTag("schedule_view_mode_toggle")
             ) {
-                listOf(strings.today, strings.upcoming, strings.overdue, strings.completed).forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedTabIndex == index,
-                        onClick = { selectedTabIndex = index },
-                        text = {
+                Row(
+                    modifier = Modifier.padding(3.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (!isCalendarView) MaterialTheme.colorScheme.surface else Color.Transparent,
+                        shadowElevation = if (!isCalendarView) 2.dp else 0.dp,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { isCalendarView = false }
+                            .testTag("toggle_list_view")
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.List,
+                                contentDescription = null,
+                                tint = if (!isCalendarView) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = title,
+                                text = strings.listView,
                                 fontSize = 12.sp,
-                                fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal,
-                                color = if (index == 2 && selectedTabIndex == index) Color(0xFFEF4444) else MaterialTheme.colorScheme.onSurface
+                                fontWeight = if (!isCalendarView) FontWeight.Bold else FontWeight.Medium,
+                                color = if (!isCalendarView) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                    )
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isCalendarView) MaterialTheme.colorScheme.surface else Color.Transparent,
+                        shadowElevation = if (isCalendarView) 2.dp else 0.dp,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { isCalendarView = true }
+                            .testTag("toggle_calendar_view")
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CalendarMonth,
+                                contentDescription = null,
+                                tint = if (isCalendarView) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = strings.teamCalendar,
+                                fontSize = 12.sp,
+                                fontWeight = if (isCalendarView) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isCalendarView) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            if (filteredFollowUps.isEmpty()) {
-                Box(
+            if (isCalendarView) {
+                // Shared Team Calendar View (Tasks & Follow-up deadlines synced)
+                TeamCalendarView(
+                    viewModel = viewModel,
+                    strings = strings,
+                    modifier = Modifier.weight(1f),
+                    onOpenGeminiForFollowUp = { selectedFollowUpForGemini = it }
+                )
+            } else {
+                // Tab Header (Today, Upcoming, Overdue, Completed)
+                TabRow(
+                    selectedTabIndex = selectedTabIndex,
+                    containerColor = MaterialTheme.colorScheme.surface,
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
+                        .clip(RoundedCornerShape(12.dp))
+                        .testTag("follow_up_tabs")
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            imageVector = Icons.Default.Schedule,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "No follow-ups in this tab",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 15.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                    listOf(strings.today, strings.upcoming, strings.overdue, strings.completed).forEachIndexed { index, title ->
+                        Tab(
+                            selected = selectedTabIndex == index,
+                            onClick = { selectedTabIndex = index },
+                            text = {
+                                Text(
+                                    text = title,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (index == 2 && selectedTabIndex == index) Color(0xFFEF4444) else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
                         )
                     }
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(filteredFollowUps, key = { it.id }) { item ->
-                        FollowUpCard(
-                            followUp = item,
-                            strings = strings,
-                            onComplete = { viewModel.markFollowUpCompleted(item) },
-                            onDelete = { viewModel.deleteFollowUp(item.id) }
-                        )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                if (filteredFollowUps.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.Schedule,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.outline,
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "No follow-ups in this tab",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 15.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(filteredFollowUps, key = { it.id }) { item ->
+                            FollowUpCard(
+                                followUp = item,
+                                strings = strings,
+                                onComplete = { viewModel.markFollowUpCompleted(item) },
+                                onDelete = { viewModel.deleteFollowUp(item.id) },
+                                onOpenGemini = { selectedFollowUpForGemini = item }
+                            )
+                        }
                     }
                 }
             }
         }
 
-        FloatingActionButton(
-            onClick = { showAddDialog = true },
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = Color.White,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(20.dp)
-                .testTag("fab_schedule_followup")
-        ) {
-            Icon(imageVector = Icons.Default.Add, contentDescription = "Schedule Follow-up")
+        if (!isCalendarView) {
+            FloatingActionButton(
+                onClick = { showAddDialog = true },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = Color.White,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(20.dp)
+                    .testTag("fab_schedule_followup")
+            ) {
+                Icon(imageVector = Icons.Default.Add, contentDescription = "Schedule Follow-up")
+            }
         }
     }
 
@@ -199,6 +297,20 @@ fun FollowUpsScreen(
             }
         )
     }
+
+    selectedFollowUpForGemini?.let { followUp ->
+        val associatedLead = leads.firstOrNull { it.id == followUp.leadId }
+        val associatedDocs by viewModel.getDocumentsForLead(followUp.leadId).collectAsState(initial = emptyList())
+        GeminiSummaryDialog(
+            lead = associatedLead,
+            initialNotes = followUp.notes.ifBlank { "Call interaction with ${followUp.leadName}. Follow-up type: ${followUp.type.label}." },
+            initialSourceType = AiSourceType.CALL_NOTES,
+            availableDocuments = associatedDocs,
+            strings = strings,
+            viewModel = viewModel,
+            onDismiss = { selectedFollowUpForGemini = null }
+        )
+    }
 }
 
 @Composable
@@ -206,7 +318,8 @@ private fun FollowUpCard(
     followUp: FollowUpEntity,
     strings: LocalizedStrings,
     onComplete: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onOpenGemini: () -> Unit
 ) {
     val context = LocalContext.current
     val isOverdue = followUp.status == FollowUpStatus.OVERDUE || (followUp.status == FollowUpStatus.PENDING && followUp.scheduledDateTime < System.currentTimeMillis())
@@ -330,37 +443,58 @@ private fun FollowUpCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Action Buttons (Done, Call)
-            if (followUp.status != FollowUpStatus.COMPLETED) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
+            // Action Buttons (Gemini AI Summary, Call, Complete)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Gemini AI Quick Button
+                OutlinedButton(
+                    onClick = onOpenGemini,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier
+                        .height(32.dp)
+                        .testTag("followup_ai_summary_${followUp.id}")
                 ) {
-                    if (followUp.clientPhone.isNotBlank()) {
-                        TextButton(
-                            onClick = {
-                                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${followUp.clientPhone}"))
-                                context.startActivity(intent)
-                            },
-                            modifier = Modifier.testTag("followup_call_btn_${followUp.id}")
-                        ) {
-                            Icon(imageVector = Icons.Default.Call, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = strings.callClient, fontSize = 12.sp)
-                        }
-                    }
+                    Icon(
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = null,
+                        tint = Color(0xFF7C3AED),
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("AI Summary", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF7C3AED))
+                }
 
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    Button(
-                        onClick = onComplete,
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.testTag("followup_complete_btn_${followUp.id}")
+                if (followUp.status != FollowUpStatus.COMPLETED) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(text = strings.markCompleted, fontSize = 12.sp)
+                        if (followUp.clientPhone.isNotBlank()) {
+                            TextButton(
+                                onClick = {
+                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${followUp.clientPhone}"))
+                                    context.startActivity(intent)
+                                },
+                                modifier = Modifier.testTag("followup_call_btn_${followUp.id}")
+                            ) {
+                                Icon(imageVector = Icons.Default.Call, contentDescription = null, modifier = Modifier.size(15.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(text = strings.callClient, fontSize = 11.sp)
+                            }
+                        }
+
+                        Button(
+                            onClick = onComplete,
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.testTag("followup_complete_btn_${followUp.id}")
+                        ) {
+                            Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(text = strings.markCompleted, fontSize = 11.sp)
+                        }
                     }
                 }
             }
